@@ -9,7 +9,7 @@ export async function onRequest(context) {
 
     const client_id = context.env.spotify_client_id;
     const client_secret = context.env.spotify_client_secret;
-    const redirect_uri = 'https://spotify-lyrics-tesla.pages.dev/callback';
+    const redirect_uri = `${url.origin}/callback`;
 
     const params = new URLSearchParams();
     params.append('code', code);
