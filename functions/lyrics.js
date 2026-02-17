@@ -26,48 +26,47 @@ export async function onRequest(context) {
             "손 틈새로 비치는 네 모습 참 좋다", "손끝으로 돌리며 시곗바늘아 달려봐", "조금만 더 빨리 날아봐", "두 눈을 꼭 감고 마법을 건다",
             "너랑 나랑은 조금 남았지", "몇 날 몇실진 모르겠지만", "네가 있을 미래에서 혹시 내가 헤맨다면", "너를 알아볼 수 있게 내 이름을 불러줘"
         ];
-        return new Response(JSON.stringify({ lines: lyrics }), { headers: { 'Content-Type': 'application/json' } });
+        return jsonResponse({ lines: lyrics });
     }
 
-    // 1. Primary Source: Lrclib.net API (Strict Match)
+    // Strategy 1: Strict Match (Artist + Track)
     try {
         const lrclibUrl = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(track)}`;
         const lrcResponse = await fetch(lrclibUrl);
-
         if (lrcResponse.ok) {
             const data = await lrcResponse.json();
             const lines = parseLrclibData(data);
             if (lines) return jsonResponse({ lines });
         }
-    } catch (e) {
-        // Continue to next method
-    }
+    } catch (e) { /* Ignore */ }
 
-    // 2. Secondary Source: Lrclib.net API (Duration Match fallback)
-    // Useful for translated titles (e.g. Redoor - 영원은 그렇듯 -> Forever Has Always Been)
+    // Strategies relying on Duration
     if (duration) {
-        try {
-            // Search by Artist only
-            const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(artist)}`;
-            const searchRes = await fetch(searchUrl);
-            if (searchRes.ok) {
-                const results = await searchRes.json();
-                if (Array.isArray(results)) {
-                    // Find a track with matching duration (+/- 2 seconds)
-                    const match = results.find(item => Math.abs(item.duration - duration) < 2);
-                    if (match) {
-                        const lines = parseLrclibData(match);
-                        if (lines) return jsonResponse({ lines });
-                    }
-                }
+        // Strategy 2: Search by Artist -> Duration Match
+        // Solves: "Redoor" (Artist match, Title mismatch)
+        if (await trySearchAndMatch(artist, duration)) {
+            return await trySearchAndMatch(artist, duration);
+        }
+
+        // Strategy 3: Search by Track Name -> Duration Match
+        // Solves: "Miso Soup and Butter" (Artist mismatch "汐れいら" vs "UshioReira", Title match)
+        if (await trySearchAndMatch(track, duration)) {
+            return await trySearchAndMatch(track, duration);
+        }
+
+        // Strategy 4: Split Title Search -> Duration Match
+        // Solves: "味噌汁とバター - Miso Soup and Butter" -> Search "Miso Soup and Butter"
+        const parts = track.split(/ - | \(|\[/).filter(p => p.trim().length > 1);
+        if (parts.length > 1) {
+            for (const part of parts) {
+                const cleanPart = part.replace(/[)\]]/g, '').trim();
+                const result = await trySearchAndMatch(cleanPart, duration);
+                if (result) return result;
             }
-        } catch (e) {
-            // Continue
         }
     }
 
-    // 3. Tertiary Source: Scraping via Search (DuckDuckGo -> Genius)
-    // Keeping this as a last resort for tracks not on Lrclib
+    // Strategy 5: Fallback Scraping (Genius)
     try {
         const geniusUrl = await searchGenius(artist, track);
         if (geniusUrl) {
@@ -93,12 +92,31 @@ function jsonResponse(data) {
 function parseLrclibData(data) {
     const lyricsText = data.plainLyrics || data.syncedLyrics;
     if (!lyricsText) return null;
-
     const lines = lyricsText.split('\n')
         .map(line => line.replace(/^\[.*?\]/, '').trim())
         .filter(line => line.length > 0);
-
     return lines.length > 0 ? lines : null;
+}
+
+// Helper: Search Lrclib and find duration match
+async function trySearchAndMatch(query, targetDuration) {
+    try {
+        const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
+        const searchRes = await fetch(searchUrl);
+        if (searchRes.ok) {
+            const results = await searchRes.json();
+            if (Array.isArray(results)) {
+                // Find a track with matching duration (+/- 3 seconds tolerance)
+                // Increased tolerance slightly for reliability
+                const match = results.find(item => Math.abs(item.duration - targetDuration) < 3);
+                if (match) {
+                    const lines = parseLrclibData(match);
+                    if (lines) return jsonResponse({ lines });
+                }
+            }
+        }
+    } catch (e) { /* Ignore */ }
+    return null;
 }
 
 async function searchGenius(artist, track) {
@@ -112,12 +130,8 @@ async function searchGenius(artist, track) {
 
         if (!response.ok) return null;
         const html = await response.text();
-
-        // Simple regex to find the first Genius link
         const match = html.match(/class="result-link" href="(https:\/\/genius\.com\/[^"]+)"/);
-        if (match && match[1]) {
-            return match[1];
-        }
+        if (match && match[1]) return match[1];
         return null;
     } catch (e) {
         return null;
@@ -129,39 +143,29 @@ async function fetchGeniusLyrics(url) {
         const response = await fetch(url, {
             headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' }
         });
-
         if (!response.ok) return null;
         const html = await response.text();
-
-        // Extract lyrics containers
         const containerRegex = /<div[^>]*data-lyrics-container="true"[^>]*>(.*?)<\/div>/g;
         let match;
         let rawHtml = "";
-
         while ((match = containerRegex.exec(html)) !== null) {
-            if (match[1]) {
-                rawHtml += match[1] + "\n";
-            }
+            if (match[1]) rawHtml += match[1] + "\n";
         }
-
         if (!rawHtml) return null;
 
-        // Convert to text
         let text = rawHtml
-            .replace(/<br\s*\/?>/gi, '\n') // Handled line breaks
-            .replace(/<\/?[^>]+(>|$)/g, "") // Strip tags
-            .replace(/&#x([0-9A-F]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16))) // Decode hex entities
-            .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec)) // Decode decimal entities
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/?[^>]+(>|$)/g, "")
+            .replace(/&#x([0-9A-F]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)))
+            .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
             .replace(/&amp;/g, '&')
             .replace(/&quot;/g, '"')
             .replace(/&apos;/g, "'")
             .replace(/&lt;/g, '<')
             .replace(/&gt;/g, '>');
 
-        // Split into lines and clean up
         return text.split('\n').map(line => line.trim()).filter(line => line.length > 0 && !line.startsWith('['));
     } catch (e) {
-        console.error("Fetch lyrics error:", e);
         return null;
     }
 }
