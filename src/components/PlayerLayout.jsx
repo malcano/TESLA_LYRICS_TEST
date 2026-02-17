@@ -1,20 +1,37 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import LyricsDisplay from './LyricsDisplay';
 
 const PlayerLayout = ({ playingTrack, lyrics, source, onRefresh }) => {
+    const lyricsRef = useRef(null);
+
     return (
         <div className="flex justify-center items-center h-[85vh] w-full max-w-5xl mx-auto relative">
-            {/* Refresh Button */}
-            <button
-                onClick={onRefresh}
-                className="absolute top-0 left-0 mt-4 ml-4 z-50 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm transition-all"
-            >
-                ↻ Sync
-            </button>
+            {/* Control Buttons Container */}
+            <div className="absolute top-0 left-0 mt-4 ml-4 z-50 flex flex-col space-y-4">
+                {/* Refresh Button */}
+                <button
+                    onClick={onRefresh}
+                    className="bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm transition-all"
+                >
+                    ↻ Sync
+                </button>
+
+                {/* Next Lyric Button (Large) */}
+                <button
+                    onClick={() => lyricsRef.current?.handleNextLine()}
+                    className="bg-white/20 hover:bg-white/30 text-white w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-95 shadow-lg border border-white/10"
+                    title="Next Lyric"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                </button>
+            </div>
 
             <div className="w-full h-full max-h-[80vh]">
                 {playingTrack ? (
                     <LyricsDisplay
+                        ref={lyricsRef}
                         lyrics={lyrics}
                         track={playingTrack.name}
                         artist={playingTrack.artist}

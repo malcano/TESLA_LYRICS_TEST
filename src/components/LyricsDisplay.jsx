@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 
-const LyricsDisplay = ({ lyrics, track, artist, source }) => {
+const LyricsDisplay = forwardRef(({ lyrics, track, artist, source }, ref) => {
     const containerRef = useRef(null);
     const [activeLine, setActiveLine] = useState(0);
 
@@ -40,6 +40,11 @@ const LyricsDisplay = ({ lyrics, track, artist, source }) => {
             });
         }
     };
+
+    useImperativeHandle(ref, () => ({
+        handleNextLine,
+        handlePrevLine
+    }));
 
     const handleScroll = () => {
         if (!containerRef.current) return;
@@ -115,20 +120,20 @@ const LyricsDisplay = ({ lyrics, track, artist, source }) => {
             {/* Navigation Controls */}
             {lyrics && lyrics.length > 0 && (
                 <>
-                    <div className="absolute bottom-8 left-0 right-0 flex justify-center space-x-12 z-20 pointer-events-none">
+                    <div className="absolute bottom-12 left-0 right-0 flex justify-center space-x-48 z-20 pointer-events-none">
                         <button
                             onClick={handlePrevLine}
-                            className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white/30 transition-all duration-300 active:scale-95 group pointer-events-auto shadow-lg"
+                            className="w-24 h-24 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white/30 transition-all duration-300 active:scale-95 group pointer-events-auto shadow-lg"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                             </svg>
                         </button>
                         <button
                             onClick={handleNextLine}
-                            className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white/30 transition-all duration-300 active:scale-95 group pointer-events-auto shadow-lg"
+                            className="w-24 h-24 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white/30 transition-all duration-300 active:scale-95 group pointer-events-auto shadow-lg"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                         </button>
@@ -141,6 +146,6 @@ const LyricsDisplay = ({ lyrics, track, artist, source }) => {
             )}
         </div>
     );
-};
+});
 
 export default LyricsDisplay;
