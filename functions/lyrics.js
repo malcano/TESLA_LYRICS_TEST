@@ -27,7 +27,33 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ lines: lyrics }), { headers: { 'Content-Type': 'application/json' } });
     }
 
-    // Real Scraping via Search
+    // 1. Primary Source: Lrclib.net API (Official, Free, Open)
+    try {
+        const lrclibUrl = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(track)}`;
+        const lrcResponse = await fetch(lrclibUrl);
+
+        if (lrcResponse.ok) {
+            const data = await lrcResponse.json();
+            // Lrclib returns 'syncedLyrics' or 'plainLyrics'
+            const lyricsText = data.plainLyrics || data.syncedLyrics;
+            if (lyricsText) {
+                // If synced, it has timestamps like [00:12.34]. We might want to strip them if the frontend expects plain lines.
+                // Current frontend expects plain lines array.
+                // Simple strip: remove [...] at start of line
+                const lines = lyricsText.split('\n')
+                    .map(line => line.replace(/^\[.*?\]/, '').trim())
+                    .filter(line => line.length > 0);
+
+                if (lines.length > 0) {
+                    return new Response(JSON.stringify({ lines }), { headers: { 'Content-Type': 'application/json' } });
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Lrclib error:", e);
+    }
+
+    // 2. Secondary Source: Scraping via Search (DuckDuckGo -> Genius)
     try {
         const geniusUrl = await searchGenius(artist, track);
         if (geniusUrl) {
@@ -59,7 +85,6 @@ async function searchGenius(artist, track) {
         const html = await response.text();
 
         // Simple regex to find the first Genius link
-        // <a href="https://genius.com/..." class="result-link">
         const match = html.match(/class="result-link" href="(https:\/\/genius\.com\/[^"]+)"/);
         if (match && match[1]) {
             return match[1];
@@ -81,8 +106,6 @@ async function fetchGeniusLyrics(url) {
         const html = await response.text();
 
         // Extract lyrics containers
-        // <div data-lyrics-container="true" ...>LYRICS HTML</div>
-        // We might have multiple containers.
         const containerRegex = /<div[^>]*data-lyrics-container="true"[^>]*>(.*?)<\/div>/g;
         let match;
         let rawHtml = "";
@@ -108,7 +131,7 @@ async function fetchGeniusLyrics(url) {
             .replace(/&gt;/g, '>');
 
         // Split into lines and clean up
-        return text.split('\n').map(line => line.trim()).filter(line => line.length > 0 && !line.startsWith('[')); // Filter empty lines and section headers like [Chorus]
+        return text.split('\n').map(line => line.trim()).filter(line => line.length > 0 && !line.startsWith('['));
     } catch (e) {
         console.error("Fetch lyrics error:", e);
         return null;
