@@ -1,9 +1,6 @@
 export async function onRequest(context) {
-    const client_id = context.env.SPOTIFY_CLIENT_ID;
-    const redirect_uri = context.env.SPOTIFY_REDIRECT_URI; // https://tesla-lyrics-test.pages.dev/api/callback or similar
-
-    // Cloudflare Pages specific: The redirect URI in Spotify Dashboard must match exactly.
-    // We'll use /callback as the path.
+    const client_id = context.env.spotify_client_id;
+    const redirect_uri = 'https://tesla-lyrics-test.pages.dev/api/callback';
 
     const state = generateRandomString(16);
     const scope = 'user-read-private user-read-email user-read-playback-state user-read-currently-playing';

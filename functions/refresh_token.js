@@ -6,8 +6,8 @@ export async function onRequest(context) {
         return new Response("Missing refresh_token", { status: 400 });
     }
 
-    const client_id = context.env.SPOTIFY_CLIENT_ID;
-    const client_secret = context.env.SPOTIFY_CLIENT_SECRET;
+    const client_id = context.env.spotify_client_id;
+    const client_secret = context.env.spotify_client_secret;
 
     const params = new URLSearchParams();
     params.append('grant_type', 'refresh_token');

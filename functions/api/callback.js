@@ -7,9 +7,9 @@ export async function onRequest(context) {
         return new Response("State mismatch or missing code", { status: 400 });
     }
 
-    const client_id = context.env.SPOTIFY_CLIENT_ID;
-    const client_secret = context.env.SPOTIFY_CLIENT_SECRET;
-    const redirect_uri = context.env.SPOTIFY_REDIRECT_URI;
+    const client_id = context.env.spotify_client_id;
+    const client_secret = context.env.spotify_client_secret;
+    const redirect_uri = 'https://tesla-lyrics-test.pages.dev/api/callback';
 
     const params = new URLSearchParams();
     params.append('code', code);
