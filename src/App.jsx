@@ -218,7 +218,14 @@ function App() {
             </div>
           </div>
         ) : (
-          <PlayerLayout playingTrack={playingTrack} lyrics={lyrics} onRefresh={handleManualRefresh} />
+        ): (
+            <PlayerLayout 
+            playingTrack = { playingTrack } 
+            lyrics = { lyrics } 
+            source = { lyricsSource }
+            onRefresh = { handleManualRefresh } 
+          />
+        )}
         )}
       </div>
     </div>
