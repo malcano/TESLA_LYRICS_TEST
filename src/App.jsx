@@ -230,11 +230,11 @@ function App() {
         <div className="flex flex-col justify-center h-full">
           {!accessToken && !isDemo ? (
             <div className="flex flex-col items-center justify-center h-[80vh] space-y-8">
-              <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 tracking-tighter">
-                MusixMatch
+              <h1 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 tracking-tighter text-center">
+                Spotify Lyrics for<br />Tesla Dashboard
               </h1>
-              <p className="text-xl text-gray-400 max-w-md text-center">
-                Sync your Spotify playback with real-time lyrics in a beautiful interface.
+              <p className="text-xl text-gray-400 max-w-lg text-center">
+                View real-time Spotify lyrics directly on your Tesla browser.
               </p>
               <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
                 <a
