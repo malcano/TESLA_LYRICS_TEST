@@ -34,7 +34,7 @@ export async function onRequest(context) {
     const searchPromises = [];
 
     // Helper to wrap trySearchAndMatch so it rejects on null (required for Promise.any)
-    const search = (q, d, src, a) => trySearchAndMatch(q, d, src, a).then(res => res ? res : Promise.reject('No match'));
+    const search = (q, d, src, a, t) => trySearchAndMatch(q, d, src, a, t).then(res => res ? res : Promise.reject('No match'));
 
     // Strategy 1: Strict Match (Artist + Track)
     // Wrapped in a promise to be compatible with Promise.any
@@ -58,11 +58,19 @@ export async function onRequest(context) {
         // Ideally we also check if item TRACK matches.
         // But for "Artist Search", the query IS the artist. 
         // Let's enforce Artist matches Artist.
-        searchPromises.push(search(artist, duration, "Lrclib (Artist Search)", artist));
+        // Strategy 2: Search by Artist -> Duration Match
+        // We validating against 'track' name for Artist search? No, we search Artist, check duration. 
+        // Logic: Search query = Artist. Found item artist = query. 
+        // Ideally we also check if item TRACK matches.
+        // But for "Artist Search", the query IS the artist. 
+        // Let's enforce Artist matches Artist.
+        searchPromises.push(search(artist, duration, "Lrclib (Artist Search)", artist, track));
 
         // Strategy 3: Search by Track Name -> Duration Match
         // Validate found artist matches requested artist
-        searchPromises.push(search(track, duration, "Lrclib (Track Search)", artist));
+        // Strategy 3: Search by Track Name -> Duration Match
+        // Validate found artist matches requested artist
+        searchPromises.push(search(track, duration, "Lrclib (Track Search)", artist, track));
 
         // Strategy 4: Split Title Search -> Duration Match
         const parts = track.split(/ - | \(|\[/).filter(p => p.trim().length > 1);
@@ -70,7 +78,7 @@ export async function onRequest(context) {
             for (const part of parts) {
                 const cleanPart = part.replace(/[)\]]/g, '').trim();
                 // Validate found artist matches requested artist
-                searchPromises.push(search(cleanPart, duration, `Lrclib (Split: "${cleanPart}")`, artist));
+                searchPromises.push(search(cleanPart, duration, `Lrclib (Split: "${cleanPart}")`, artist, track));
             }
         }
     }
@@ -117,18 +125,17 @@ function parseLrclibData(data) {
 }
 
 // Helper: Search Lrclib and find duration match
-async function trySearchAndMatch(query, targetDuration, sourceName, targetArtist = null) {
+async function trySearchAndMatch(query, targetDuration, sourceName, targetArtist = null, targetTrack = null) {
     try {
         const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
         const searchRes = await fetch(searchUrl);
         if (searchRes.ok) {
             const results = await searchRes.json();
             if (Array.isArray(results)) {
-                // Find a track with matching duration (+/- 3 seconds tolerance)
-                // Increased tolerance slightly for reliability
-                const match = results.find(item => {
+                // Find all candidates matching duration (+/- 2 seconds tolerance)
+                const candidates = results.filter(item => {
                     // 1. Duration Check
-                    const durationMatch = Math.abs(item.duration - targetDuration) < 3;
+                    const durationMatch = Math.abs(item.duration - targetDuration) < 2; // Strict 2s tolerance
                     if (!durationMatch) return false;
 
                     // 2. Artist Check (if targetArtist is provided)
@@ -138,8 +145,6 @@ async function trySearchAndMatch(query, targetDuration, sourceName, targetArtist
                         const nTargetArtist = normalize(targetArtist);
 
                         // Strict check: One must contain the other
-                        // This prevents "Ling Ling" (The Black Skirts) matching "Unravel" (TK from Ling Tosite Sigure)
-                        // because "Ling" (split search) finds "TK..." which does NOT contain "The Black Skirts"
                         if (!nItemArtist.includes(nTargetArtist) && !nTargetArtist.includes(nItemArtist)) {
                             return false;
                         }
@@ -147,10 +152,33 @@ async function trySearchAndMatch(query, targetDuration, sourceName, targetArtist
                     return true;
                 });
 
-                if (match) {
-                    const lines = parseLrclibData(match);
-                    if (lines) return jsonResponse({ lines, source: sourceName });
-                }
+                if (candidates.length === 0) return null;
+
+                // Sort candidates to find the BEST match
+                candidates.sort((a, b) => {
+                    // Priority 1: Title Match (if targetTrack provided)
+                    if (targetTrack) {
+                        const normalize = (str) => str ? str.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') : '';
+                        const nTargetTrack = normalize(targetTrack);
+                        const nA = normalize(a.trackName);
+                        const nB = normalize(b.trackName);
+
+                        const aMatches = nA.includes(nTargetTrack) || nTargetTrack.includes(nA);
+                        const bMatches = nB.includes(nTargetTrack) || nTargetTrack.includes(nB);
+
+                        if (aMatches && !bMatches) return -1; // a wins
+                        if (!aMatches && bMatches) return 1;  // b wins
+                    }
+
+                    // Priority 2: Duration Similarity (closest wins)
+                    const deltaA = Math.abs(a.duration - targetDuration);
+                    const deltaB = Math.abs(b.duration - targetDuration);
+                    return deltaA - deltaB;
+                });
+
+                const bestMatch = candidates[0];
+                const lines = parseLrclibData(bestMatch);
+                if (lines) return jsonResponse({ lines, source: sourceName });
             }
         }
     } catch (e) { /* Ignore */ }
