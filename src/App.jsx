@@ -150,7 +150,15 @@ function App() {
           setLyricsFound(false);
         });
       }
-    }).catch(console.error);
+    }).catch(err => {
+      console.error("Error fetching playback:", err);
+      if (err.response && err.response.status === 401) {
+        // Token expired and not refreshed? Logout.
+        console.log("Access token expired/invalid. Logging out.");
+        localStorage.clear();
+        window.location = "/";
+      }
+    });
   };
 
   return (
