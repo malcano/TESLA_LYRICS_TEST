@@ -9,6 +9,7 @@ function App() {
   const [playingTrack, setPlayingTrack] = useState(null);
   const [lyrics, setLyrics] = useState([]);
   const [lyricsFound, setLyricsFound] = useState(false);
+  const [lyricsSource, setLyricsSource] = useState(null);
   const [isDemo, setIsDemo] = useState(false);
 
   const handleDemoStart = () => {
@@ -102,6 +103,7 @@ function App() {
             // Clear previous lyrics immediately
             setLyrics(["Lyrics loading..."]);
             setLyricsFound(false);
+            setLyricsSource(null);
 
             // Fetch Lyrics from our backend (Cloudflare Function)
             axios.get('/lyrics', {
@@ -112,11 +114,13 @@ function App() {
               }
             }).then(res => {
               setLyrics(res.data.lines);
+              setLyricsSource(res.data.source);
               setLyricsFound(true);
             }).catch(err => {
               console.error(err);
               setLyrics(["Error fetching lyrics"]);
               setLyricsFound(false);
+              setLyricsSource("Error");
             });
           }
         }
@@ -151,6 +155,7 @@ function App() {
         // Clear previous lyrics immediately
         setLyrics(["Lyrics loading..."]);
         setLyricsFound(false);
+        setLyricsSource(null);
 
         axios.get('/lyrics', {
           params: {
@@ -160,11 +165,13 @@ function App() {
           }
         }).then(res => {
           setLyrics(res.data.lines);
+          setLyricsSource(res.data.source);
           setLyricsFound(true);
         }).catch(err => {
           console.error(err);
           setLyrics(["Error fetching lyrics"]);
           setLyricsFound(false);
+          setLyricsSource("Error");
         });
       }
     }).catch(err => {
