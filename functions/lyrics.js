@@ -26,7 +26,7 @@ export async function onRequest(context) {
             "손 틈새로 비치는 네 모습 참 좋다", "손끝으로 돌리며 시곗바늘아 달려봐", "조금만 더 빨리 날아봐", "두 눈을 꼭 감고 마법을 건다",
             "너랑 나랑은 조금 남았지", "몇 날 몇실진 모르겠지만", "네가 있을 미래에서 혹시 내가 헤맨다면", "너를 알아볼 수 있게 내 이름을 불러줘"
         ];
-        return jsonResponse({ lines: lyrics });
+        return jsonResponse({ lines: lyrics, source: "Manual Override (IU)" });
     }
 
     // Strategy 1: Strict Match (Artist + Track)
@@ -36,7 +36,7 @@ export async function onRequest(context) {
         if (lrcResponse.ok) {
             const data = await lrcResponse.json();
             const lines = parseLrclibData(data);
-            if (lines) return jsonResponse({ lines });
+            if (lines) return jsonResponse({ lines, source: "Lrclib (Exact Match)" });
         }
     } catch (e) { /* Ignore */ }
 
@@ -44,15 +44,13 @@ export async function onRequest(context) {
     if (duration) {
         // Strategy 2: Search by Artist -> Duration Match
         // Solves: "Redoor" (Artist match, Title mismatch)
-        if (await trySearchAndMatch(artist, duration)) {
-            return await trySearchAndMatch(artist, duration);
-        }
+        const res2 = await trySearchAndMatch(artist, duration, "Lrclib (Artist Search)");
+        if (res2) return res2;
 
         // Strategy 3: Search by Track Name -> Duration Match
         // Solves: "Miso Soup and Butter" (Artist mismatch "汐れいら" vs "UshioReira", Title match)
-        if (await trySearchAndMatch(track, duration)) {
-            return await trySearchAndMatch(track, duration);
-        }
+        const res3 = await trySearchAndMatch(track, duration, "Lrclib (Track Search)");
+        if (res3) return res3;
 
         // Strategy 4: Split Title Search -> Duration Match
         // Solves: "味噌汁とバター - Miso Soup and Butter" -> Search "Miso Soup and Butter"
@@ -60,8 +58,8 @@ export async function onRequest(context) {
         if (parts.length > 1) {
             for (const part of parts) {
                 const cleanPart = part.replace(/[)\]]/g, '').trim();
-                const result = await trySearchAndMatch(cleanPart, duration);
-                if (result) return result;
+                const res4 = await trySearchAndMatch(cleanPart, duration, `Lrclib (Split: "${cleanPart}")`);
+                if (res4) return res4;
             }
         }
     }
@@ -72,7 +70,7 @@ export async function onRequest(context) {
         if (geniusUrl) {
             const lines = await fetchGeniusLyrics(geniusUrl);
             if (lines && lines.length > 0) {
-                return jsonResponse({ lines });
+                return jsonResponse({ lines, source: "Genius (Scraper)" });
             }
         }
     } catch (e) {
@@ -81,7 +79,8 @@ export async function onRequest(context) {
 
     // Final Fallback
     return jsonResponse({
-        lines: ["Lyrics not found.", "Please check song title."]
+        lines: ["Lyrics not found.", "Please check song title."],
+        source: "None"
     });
 }
 
@@ -99,7 +98,7 @@ function parseLrclibData(data) {
 }
 
 // Helper: Search Lrclib and find duration match
-async function trySearchAndMatch(query, targetDuration) {
+async function trySearchAndMatch(query, targetDuration, sourceName) {
     try {
         const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
         const searchRes = await fetch(searchUrl);
@@ -111,7 +110,7 @@ async function trySearchAndMatch(query, targetDuration) {
                 const match = results.find(item => Math.abs(item.duration - targetDuration) < 3);
                 if (match) {
                     const lines = parseLrclibData(match);
-                    if (lines) return jsonResponse({ lines });
+                    if (lines) return jsonResponse({ lines, source: sourceName });
                 }
             }
         }

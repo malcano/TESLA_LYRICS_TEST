@@ -84,7 +84,7 @@ const LyricsDisplay = ({ lyrics, track, artist, source }) => {
                     <h3 className="text-xl text-gray-300 font-medium tracking-wide">{artist}</h3>
                 </div>
 
-                <div className="space-y-8 py-[45vh]">
+                <div className="space-y-8 pt-[25vh] pb-[50vh]">
                     {lyrics && lyrics.length > 0 ? (
                         lyrics.map((line, index) => (
                             <p
