@@ -120,7 +120,7 @@ const LyricsDisplay = forwardRef(({ lyrics, track, artist, source }, ref) => {
             {/* Navigation Controls */}
             {lyrics && lyrics.length > 0 && (
                 <>
-                    <div className="absolute bottom-12 left-0 right-0 flex justify-center space-x-48 z-20 pointer-events-none">
+                    <div className="absolute bottom-12 left-0 right-0 flex justify-between px-24 z-20 pointer-events-none w-full max-w-4xl mx-auto">
                         <button
                             onClick={handlePrevLine}
                             className="w-24 h-24 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white/30 transition-all duration-300 active:scale-95 group pointer-events-auto shadow-lg"

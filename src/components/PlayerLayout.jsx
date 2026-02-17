@@ -19,10 +19,10 @@ const PlayerLayout = ({ playingTrack, lyrics, source, onRefresh }) => {
                 {/* Next Lyric Button (Large) */}
                 <button
                     onClick={() => lyricsRef.current?.handleNextLine()}
-                    className="bg-white/20 hover:bg-white/30 text-white w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-95 shadow-lg border border-white/10"
+                    className="bg-white/20 hover:bg-white/30 text-white w-32 h-32 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-95 shadow-lg border border-white/10"
                     title="Next Lyric"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                     </svg>
                 </button>
