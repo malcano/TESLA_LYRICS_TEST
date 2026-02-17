@@ -27,42 +27,90 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ lines: lyrics }), { headers: { 'Content-Type': 'application/json' } });
     }
 
-    // Real Scraping Attempt (Regex based to avoid dependencies)
+    // Real Scraping via Search
     try {
-        // 1. Search using a public search/frontend or try to guess URL
-        // Guessing Genius URL: https://genius.com/Artist-name-track-name-lyrics
-        const geniusSlug = `${artist.replace(/[^a-zA-Z0-9]/g, '-')}-${track.replace(/[^a-zA-Z0-9]/g, '-')}-lyrics`.replace(/-+/g, '-').toLowerCase();
-        const geniusUrl = `https://genius.com/${geniusSlug}`; // Rough guess, often works for english
+        const geniusUrl = await searchGenius(artist, track);
+        if (geniusUrl) {
+            const lines = await fetchGeniusLyrics(geniusUrl);
+            if (lines && lines.length > 0) {
+                return new Response(JSON.stringify({ lines }), { headers: { 'Content-Type': 'application/json' } });
+            }
+        }
+    } catch (e) {
+        console.error("Scraping error:", e);
+    }
 
-        // Note: Fetching Genius directly from Cloudflare might get 403.
-        // We try it. If it fails, we return a generic message (but not the "Limited" one).
+    // Final Fallback
+    return new Response(JSON.stringify({
+        lines: ["Lyrics not found.", "Please check song title."]
+    }), { headers: { 'Content-Type': 'application/json' } });
+}
 
-        const response = await fetch(geniusUrl, {
+async function searchGenius(artist, track) {
+    try {
+        const query = `site:genius.com ${artist} ${track} lyrics`;
+        const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`;
+
+        const response = await fetch(searchUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' }
         });
 
-        if (response.ok) {
-            const html = await response.text();
-            // Regex to extract lyrics container content
-            // Looking for <div data-lyrics-container="true"...>...</div>
-            // This is complex with regex. simpler approach: find text between specific markers if possible.
-            // Genius is tricky.
+        if (!response.ok) return null;
+        const html = await response.text();
 
-            // Simpler fallback: If we can't scrape, we just say/
-            // "Lyrics not found for this track."
+        // Simple regex to find the first Genius link
+        // <a href="https://genius.com/..." class="result-link">
+        const match = html.match(/class="result-link" href="(https:\/\/genius\.com\/[^"]+)"/);
+        if (match && match[1]) {
+            return match[1];
+        }
+        return null;
+    } catch (e) {
+        console.error("Search error:", e);
+        return null;
+    }
+}
 
-            // For now, to satisfy the user request "Remove the Limited message", we will return:
-            return new Response(JSON.stringify({
-                lines: ["Lyrics not found.", "Please check song title."]
-            }), { headers: { 'Content-Type': 'application/json' } });
+async function fetchGeniusLyrics(url) {
+    try {
+        const response = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' }
+        });
+
+        if (!response.ok) return null;
+        const html = await response.text();
+
+        // Extract lyrics containers
+        // <div data-lyrics-container="true" ...>LYRICS HTML</div>
+        // We might have multiple containers.
+        const containerRegex = /<div[^>]*data-lyrics-container="true"[^>]*>(.*?)<\/div>/g;
+        let match;
+        let rawHtml = "";
+
+        while ((match = containerRegex.exec(html)) !== null) {
+            if (match[1]) {
+                rawHtml += match[1] + "\n";
+            }
         }
 
-    } catch (e) {
-        // Ignore
-    }
+        if (!rawHtml) return null;
 
-    // Final Catch-all - User wants to remove the specific "Limited" message.
-    return new Response(JSON.stringify({
-        lines: ["Lyrics loading...", "If this persists, lyrics might be unavailable."]
-    }), { headers: { 'Content-Type': 'application/json' } });
+        // Convert to text
+        let text = rawHtml
+            .replace(/<br\s*\/?>/gi, '\n') // Handled line breaks
+            .replace(/<\/?[^>]+(>|$)/g, "") // Strip tags
+            .replace(/&#x([0-9A-F]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16))) // Decode hex entities
+            .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec)) // Decode decimal entities
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>');
+
+        // Split into lines and clean up
+        return text.split('\n').map(line => line.trim()).filter(line => line.length > 0 && !line.startsWith('[')); // Filter empty lines and section headers like [Chorus]
+    } catch (e) {
+        console.error("Fetch lyrics error:", e);
+        return null;
+    }
 }
