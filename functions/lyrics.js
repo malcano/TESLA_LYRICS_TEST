@@ -159,7 +159,7 @@ async function trySearchAndMatch(query, targetDuration, sourceName, targetArtist
 
 async function searchGenius(artist, track) {
     try {
-        const query = `site:genius.com ${artist} ${track} lyrics`;
+        const query = `site:genius.com "${artist}" "${track}" lyrics`; // Use quotes for stricter search
         const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`;
 
         const response = await fetch(searchUrl, {
@@ -169,7 +169,20 @@ async function searchGenius(artist, track) {
         if (!response.ok) return null;
         const html = await response.text();
         const match = html.match(/class="result-link" href="(https:\/\/genius\.com\/[^"]+)"/);
-        if (match && match[1]) return match[1];
+        if (match && match[1]) {
+            const url = match[1];
+            // Validate URL contains artist name (normalized)
+            // e.g. https://genius.com/Hanroro-do-what-you-like-lyrics
+            const normalize = (str) => str ? str.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') : '';
+            const nArtist = normalize(artist);
+            const nUrl = normalize(url);
+
+            // Check if normalized artist name is in the normalized URL
+            // This prevents "Hanroro" query returning "Taewan" URL
+            if (nUrl.includes(nArtist)) {
+                return url;
+            }
+        }
         return null;
     } catch (e) {
         return null;
