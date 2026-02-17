@@ -98,6 +98,11 @@ function App() {
               name: trackName,
               albumArt
             });
+
+            // Clear previous lyrics immediately
+            setLyrics(["Lyrics loading..."]);
+            setLyricsFound(false);
+
             // Fetch Lyrics from our backend (Cloudflare Function)
             axios.get('/lyrics', {
               params: {
