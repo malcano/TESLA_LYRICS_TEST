@@ -1,0 +1,110 @@
+import React, { useEffect, useRef, useState } from 'react';
+
+const LyricsDisplay = ({ lyrics, track, artist }) => {
+    const containerRef = useRef(null);
+    const [activeLine, setActiveLine] = useState(0);
+
+    // Reset active line when track changes
+    useEffect(() => {
+        setActiveLine(0);
+        if (containerRef.current) {
+            containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [track]);
+
+    const scrollToActiveLine = (index) => {
+        if (containerRef.current) {
+            const lineElement = containerRef.current.children[1].children[index];
+            if (lineElement) {
+                lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    };
+
+    const handleNextLine = () => {
+        if (lyrics && activeLine < lyrics.length - 1) {
+            setActiveLine(prev => {
+                const next = prev + 1;
+                scrollToActiveLine(next);
+                return next;
+            });
+        }
+    };
+
+    const handlePrevLine = () => {
+        if (activeLine > 0) {
+            setActiveLine(prev => {
+                const next = prev - 1;
+                scrollToActiveLine(next);
+                return next;
+            });
+        }
+    };
+
+    return (
+        <div
+            className="flex flex-col h-full relative"
+        >
+            <div
+                className="flex-1 overflow-y-auto no-scrollbar p-8 text-center scroll-smooth"
+                ref={containerRef}
+            >
+                <div className="sticky top-0 bg-transparent py-4 z-10 mb-8">
+                    <h2 className="text-3xl font-extrabold text-white mb-1 drop-shadow-lg">{track}</h2>
+                    <h3 className="text-xl text-gray-300 font-medium tracking-wide">{artist}</h3>
+                </div>
+
+                <div className="space-y-8 pb-32">
+                    {lyrics && lyrics.length > 0 ? (
+                        lyrics.map((line, index) => (
+                            <p
+                                key={index}
+                                onClick={() => {
+                                    setActiveLine(index);
+                                    scrollToActiveLine(index);
+                                }}
+                                className={`transition-all duration-500 cursor-pointer origin-center
+                                    ${index === activeLine
+                                        ? 'text-3xl md:text-4xl text-white font-bold scale-105 opacity-100'
+                                        : 'text-xl md:text-2xl text-gray-500 font-medium scale-95 opacity-50 blur-[1px] hover:opacity-80 hover:blur-none'
+                                    }
+                                `}
+                            >
+                                {line}
+                            </p>
+                        ))
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-48 space-y-3 opacity-60">
+                            <p className="text-lg text-gray-400 italic">Searching for lyrics...</p>
+                            <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Navigation Controls */}
+            {lyrics && lyrics.length > 0 && (
+                <div className="absolute bottom-8 left-0 right-0 flex justify-center space-x-12 z-20">
+                    <button
+                        onClick={handlePrevLine}
+                        className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white/30 transition-all duration-300 active:scale-95 group"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <button
+                        onClick={handleNextLine}
+                        className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white/30 transition-all duration-300 active:scale-95 group"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default LyricsDisplay;
