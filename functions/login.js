@@ -1,6 +1,6 @@
 export async function onRequest(context) {
     const client_id = context.env.spotify_client_id;
-    const redirect_uri = 'https://tesla-lyrics-test.pages.dev/api/callback';
+    const redirect_uri = 'https://spotify-lyrics-tesla.pages.dev/callback';
 
     const state = generateRandomString(16);
     const scope = 'user-read-private user-read-email user-read-playback-state user-read-currently-playing';
