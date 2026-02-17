@@ -30,28 +30,44 @@ function App() {
 
         if (!playingTrack || playingTrack.id !== demoTrack.id) {
           setPlayingTrack(demoTrack);
-          // Fetch Lyrics via backend
-          axios.get('http://localhost:3001/lyrics', {
-            params: { track: demoTrack.name, artist: demoTrack.artist }
-          }).then(res => {
-            setLyrics(res.data.lines);
-            setLyricsFound(true);
-          }).catch(err => {
-            console.error("Demo lyrics fetch failed", err);
-            // Fallback lyrics if backend fails or is offline
-            setLyrics([
-              "I used to rule the world",
-              "Seas would rise when I gave the word",
-              "Now in the morning, I sleep alone",
-              "Sweep the streets I used to own",
-              "",
-              "I used to roll the dice",
-              "Feel the fear in my enemy's eyes",
-              "Listen as the crowd would sing",
-              "Now the old king is dead! Long live the king!",
-              "(Demo Fallback Lyrics)"
-            ]);
-          });
+          // Client-side lyrics for Demo Mode (Serverless support)
+          // Hardcoded lyrics for "IU - You & I" to ensure it works on Cloudflare Pages
+          setLyrics([
+            "시곌 보며 속삭이는 비밀들",
+            "간절한 내 맘속 이야기",
+            "지금 내 모습을 해쳐도 좋아",
+            "나를 재촉하면 할수록 좋아",
+            "내 이름 불러줘",
+            "손 틈새로 비치는 내 맘 들킬까 두려워",
+            "가슴이 막 벅차 서러워",
+            "조금만 꼭 참고 날 기다려줘",
+            "너랑 나랑은 지금 안되지",
+            "시계를 더 보채고 싶지만",
+            "네가 있던 미래에서 내 이름을 불러줘",
+            "내가 먼저 엿보고 온 시간들",
+            "너와 내가 함께였었지",
+            "나랑 놀아주는 그대가 좋아",
+            "내가 물어보면 그대도 좋아",
+            "내 이름이 뭐야",
+            "손 틈새로 비치는 내 맘 들킬까 두려워",
+            "가슴이 막 벅차 서러워",
+            "조금만 꼭 참고 날 기다려줘",
+            "너랑 나랑은 지금 안되지",
+            "시계를 더 보채고 싶지만",
+            "네가 있던 미래에서 내 이름을 불러줘",
+            "눈 깜박하면 어른이 될 거에요",
+            "날 알아보겠죠 그댄 기억하겠죠",
+            "그래 기묘했던 아이",
+            "손 틈새로 비치는 네 모습 참 좋다",
+            "손끝으로 돌리며 시곗바늘아 달려봐",
+            "조금만 더 빨리 날아봐",
+            "두 눈을 꼭 감고 마법을 건다",
+            "너랑 나랑은 조금 남았지",
+            "몇 날 몇실진 모르겠지만",
+            "네가 있을 미래에서 혹시 내가 헤맨다면",
+            "너를 알아볼 수 있게 내 이름을 불러줘"
+          ]);
+          setLyricsFound(true);
         }
         return;
       }
@@ -82,8 +98,8 @@ function App() {
               name: trackName,
               albumArt
             });
-            // Fetch Lyrics from our backend
-            axios.get('http://localhost:3001/lyrics', {
+            // Fetch Lyrics from our backend (Cloudflare Function)
+            axios.get('/lyrics', {
               params: { track: trackName, artist: artist }
             }).then(res => {
               setLyrics(res.data.lines);
@@ -131,7 +147,7 @@ function App() {
             <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
               <a
                 className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-4 px-10 rounded-full text-xl transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_20px_rgba(29,185,84,0.5)] text-center"
-                href="http://localhost:3001/login"
+                href="/login"
               >
                 Login with Spotify
               </a>

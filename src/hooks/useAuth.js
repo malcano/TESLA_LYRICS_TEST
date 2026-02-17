@@ -30,7 +30,7 @@ const useAuth = () => {
     // Refresh 1 minute before expiry
     const interval = setInterval(() => {
       axios
-        .get("http://localhost:3001/refresh_token", {
+        .get("/refresh_token", {
           params: { refresh_token: refreshToken },
         })
         .then((res) => {
