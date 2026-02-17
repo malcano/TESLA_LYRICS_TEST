@@ -148,6 +148,10 @@ function App() {
 
         setPlayingTrack({ id: track.id, artist, name: trackName, albumArt });
 
+        // Clear previous lyrics immediately
+        setLyrics(["Lyrics loading..."]);
+        setLyricsFound(false);
+
         axios.get('/lyrics', {
           params: {
             track: trackName,
