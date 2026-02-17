@@ -29,24 +29,29 @@ export async function onRequest(context) {
         return jsonResponse({ lines: lyrics, source: "Manual Override (IU)" });
     }
 
+    // Unified Strategy: Race "Exact Match" against "Duration-based Searches"
+    // This ensures we get the fastest possible result without waiting for sequential failures.
+    const searchPromises = [];
+
+    // Helper to wrap trySearchAndMatch so it rejects on null (required for Promise.any)
+    const search = (q, d, src) => trySearchAndMatch(q, d, src).then(res => res ? res : Promise.reject('No match'));
+
     // Strategy 1: Strict Match (Artist + Track)
-    try {
-        const lrclibUrl = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(track)}`;
-        const lrcResponse = await fetch(lrclibUrl);
-        if (lrcResponse.ok) {
-            const data = await lrcResponse.json();
-            const lines = parseLrclibData(data);
-            if (lines) return jsonResponse({ lines, source: "Lrclib (Exact Match)" });
-        }
-    } catch (e) { /* Ignore */ }
+    // Wrapped in a promise to be compatible with Promise.any
+    searchPromises.push(new Promise(async (resolve, reject) => {
+        try {
+            const lrclibUrl = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(track)}`;
+            const lrcResponse = await fetch(lrclibUrl);
+            if (lrcResponse.ok) {
+                const data = await lrcResponse.json();
+                const lines = parseLrclibData(data);
+                if (lines) resolve(jsonResponse({ lines, source: "Lrclib (Exact Match)" }));
+            }
+            reject('No exact match');
+        } catch (e) { reject(e); }
+    }));
 
-    // Strategies relying on Duration
     if (duration) {
-        const searchPromises = [];
-
-        // Helper to wrap trySearchAndMatch so it rejects on null (required for Promise.any)
-        const search = (q, d, src) => trySearchAndMatch(q, d, src).then(res => res ? res : Promise.reject('No match'));
-
         // Strategy 2: Search by Artist -> Duration Match
         searchPromises.push(search(artist, duration, "Lrclib (Artist Search)"));
 
@@ -61,14 +66,14 @@ export async function onRequest(context) {
                 searchPromises.push(search(cleanPart, duration, `Lrclib (Split: "${cleanPart}")`));
             }
         }
+    }
 
-        // Execute all Duration strategies in parallel and take the first success
-        try {
-            const result = await Promise.any(searchPromises);
-            return result;
-        } catch (e) {
-            // All duration searches failed, proceed to next fallback
-        }
+    // Execute ALL strategies in parallel and take the first success
+    try {
+        const result = await Promise.any(searchPromises);
+        return result;
+    } catch (e) {
+        // All Lrclib strategies failed, proceed to Genius fallback
     }
 
     // Strategy 5: Fallback Scraping (Genius)
