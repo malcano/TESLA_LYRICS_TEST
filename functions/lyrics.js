@@ -42,25 +42,32 @@ export async function onRequest(context) {
 
     // Strategies relying on Duration
     if (duration) {
+        const searchPromises = [];
+
+        // Helper to wrap trySearchAndMatch so it rejects on null (required for Promise.any)
+        const search = (q, d, src) => trySearchAndMatch(q, d, src).then(res => res ? res : Promise.reject('No match'));
+
         // Strategy 2: Search by Artist -> Duration Match
-        // Solves: "Redoor" (Artist match, Title mismatch)
-        const res2 = await trySearchAndMatch(artist, duration, "Lrclib (Artist Search)");
-        if (res2) return res2;
+        searchPromises.push(search(artist, duration, "Lrclib (Artist Search)"));
 
         // Strategy 3: Search by Track Name -> Duration Match
-        // Solves: "Miso Soup and Butter" (Artist mismatch "汐れいら" vs "UshioReira", Title match)
-        const res3 = await trySearchAndMatch(track, duration, "Lrclib (Track Search)");
-        if (res3) return res3;
+        searchPromises.push(search(track, duration, "Lrclib (Track Search)"));
 
         // Strategy 4: Split Title Search -> Duration Match
-        // Solves: "味噌汁とバター - Miso Soup and Butter" -> Search "Miso Soup and Butter"
         const parts = track.split(/ - | \(|\[/).filter(p => p.trim().length > 1);
         if (parts.length > 1) {
             for (const part of parts) {
                 const cleanPart = part.replace(/[)\]]/g, '').trim();
-                const res4 = await trySearchAndMatch(cleanPart, duration, `Lrclib (Split: "${cleanPart}")`);
-                if (res4) return res4;
+                searchPromises.push(search(cleanPart, duration, `Lrclib (Split: "${cleanPart}")`));
             }
+        }
+
+        // Execute all Duration strategies in parallel and take the first success
+        try {
+            const result = await Promise.any(searchPromises);
+            return result;
+        } catch (e) {
+            // All duration searches failed, proceed to next fallback
         }
     }
 
