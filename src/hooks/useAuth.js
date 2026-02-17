@@ -18,8 +18,24 @@ const useAuth = () => {
       setRefreshToken(refresh_token_param);
       setExpiresIn(expires_in_param);
 
+      // Save to localStorage
+      localStorage.setItem('spotify_access_token', access_token_param);
+      localStorage.setItem('spotify_refresh_token', refresh_token_param);
+      localStorage.setItem('spotify_expires_in', expires_in_param);
+
       // Clean URL
       window.history.pushState({}, null, "/");
+    } else {
+      // Load from localStorage if not in URL
+      const storedAccessToken = localStorage.getItem('spotify_access_token');
+      const storedRefreshToken = localStorage.getItem('spotify_refresh_token');
+      const storedExpiresIn = localStorage.getItem('spotify_expires_in');
+
+      if (storedAccessToken && storedRefreshToken && storedExpiresIn) {
+        setAccessToken(storedAccessToken);
+        setRefreshToken(storedRefreshToken);
+        setExpiresIn(storedExpiresIn);
+      }
     }
   }, []);
 
@@ -35,10 +51,15 @@ const useAuth = () => {
         })
         .then((res) => {
           setAccessToken(res.data.access_token);
-          setExpiresIn(res.data.expires_in);
+          if (res.data.expires_in) {
+            setExpiresIn(res.data.expires_in);
+            localStorage.setItem('spotify_expires_in', res.data.expires_in);
+          }
+          localStorage.setItem('spotify_access_token', res.data.access_token);
         })
         .catch(() => {
           window.location = "/";
+          localStorage.clear();
         });
     }, (expiresIn - 60) * 1000);
 

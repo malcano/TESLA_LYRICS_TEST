@@ -1,9 +1,17 @@
 import React from 'react';
 import LyricsDisplay from './LyricsDisplay';
 
-const PlayerLayout = ({ playingTrack, lyrics }) => {
+const PlayerLayout = ({ playingTrack, lyrics, onRefresh }) => {
     return (
-        <div className="flex justify-center items-center h-[85vh] w-full max-w-5xl mx-auto">
+        <div className="flex justify-center items-center h-[85vh] w-full max-w-5xl mx-auto relative">
+            {/* Refresh Button */}
+            <button
+                onClick={onRefresh}
+                className="absolute top-0 left-0 mt-4 ml-4 z-50 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm transition-all"
+            >
+                ↻ Sync
+            </button>
+
             <div className="w-full h-full max-h-[80vh]">
                 {playingTrack ? (
                     <LyricsDisplay

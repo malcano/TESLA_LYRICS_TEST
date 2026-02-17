@@ -112,59 +112,92 @@ function App() {
           }
         }
       }).catch(err => console.error("Error fetching playback state", err));
-    };
+    }).catch(err => console.error("Error fetching playback state", err));
+};
 
-    // Poll every 5 seconds
-    fetchPlaybackState();
-    const interval = setInterval(fetchPlaybackState, 5000);
-    return () => clearInterval(interval);
+fetchPlaybackState();
+const interval = setInterval(fetchPlaybackState, 5000);
+
+return () => clearInterval(interval);
   }, [accessToken, playingTrack, isDemo]);
 
-  return (
-    <div className="relative min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 overflow-hidden font-sans">
+// Manual Refresh Handler
+const handleManualRefresh = () => {
+  if (isDemo) return;
+  if (!accessToken) return;
 
-      {/* Dynamic Background */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 via-black to-green-900/40 animate-pulse-slow"></div>
-        {playingTrack && (
-          <img
-            src={playingTrack.albumArt}
-            className="absolute inset-0 w-full h-full object-cover opacity-20 blur-3xl scale-125 transition-all duration-1000"
-            alt="Background"
-          />
-        )}
-      </div>
+  axios.get('https://api.spotify.com/v1/me/player/currently-playing', {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  }).then(res => {
+    if (res.status === 204 || !res.data) return;
+    const data = res.data;
+    if (data && data.item) {
+      const track = data.item;
+      const artist = track.artists[0].name;
+      const trackName = track.name;
+      const albumArt = track.album.images[0].url;
 
-      <div className="z-10 w-full max-w-7xl">
-        {!accessToken && !isDemo ? (
-          <div className="flex flex-col items-center justify-center h-[80vh] space-y-8">
-            <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 tracking-tighter">
-              MusixMatch
-            </h1>
-            <p className="text-xl text-gray-400 max-w-md text-center">
-              Sync your Spotify playback with real-time lyrics in a beautiful interface.
-            </p>
-            <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
-              <a
-                className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-4 px-10 rounded-full text-xl transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_20px_rgba(29,185,84,0.5)] text-center"
-                href="/login"
-              >
-                Login with Spotify
-              </a>
-              <button
-                onClick={handleDemoStart}
-                className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 font-bold py-4 px-10 rounded-full text-xl transition-all duration-300 transform hover:scale-105 text-center"
-              >
-                Try Demo
-              </button>
-            </div>
-          </div>
-        ) : (
-          <PlayerLayout playingTrack={playingTrack} lyrics={lyrics} />
-        )}
-      </div>
+      setPlayingTrack({ id: track.id, artist, name: trackName, albumArt });
+
+      axios.get('/lyrics', {
+        params: { track: trackName, artist: artist }
+      }).then(res => {
+        setLyrics(res.data.lines);
+        setLyricsFound(true);
+      }).catch(err => {
+        console.error(err);
+        setLyrics(["Error fetching lyrics"]);
+        setLyricsFound(false);
+      });
+    }
+  }).catch(console.error);
+};
+
+return (
+  <div className="relative min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 overflow-hidden font-sans">
+
+    {/* Dynamic Background */}
+    <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 via-black to-green-900/40 animate-pulse-slow"></div>
+      {playingTrack && (
+        <img
+          src={playingTrack.albumArt}
+          className="absolute inset-0 w-full h-full object-cover opacity-20 blur-3xl scale-125 transition-all duration-1000"
+          alt="Background"
+        />
+      )}
     </div>
-  );
+
+    <div className="z-10 w-full max-w-7xl">
+      {!accessToken && !isDemo ? (
+        <div className="flex flex-col items-center justify-center h-[80vh] space-y-8">
+          <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 tracking-tighter">
+            MusixMatch
+          </h1>
+          <p className="text-xl text-gray-400 max-w-md text-center">
+            Sync your Spotify playback with real-time lyrics in a beautiful interface.
+          </p>
+          <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
+            <a
+              className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-4 px-10 rounded-full text-xl transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_20px_rgba(29,185,84,0.5)] text-center"
+              href="/login"
+            >
+              Login with Spotify
+            </a>
+            <button
+              onClick={handleDemoStart}
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 font-bold py-4 px-10 rounded-full text-xl transition-all duration-300 transform hover:scale-105 text-center"
+            >
+              Try Demo
+            </button>
+          </div>
+        </div>
+      ) : (
+        <PlayerLayout playingTrack={playingTrack} lyrics={lyrics} onRefresh={handleManualRefresh} />
+      )}
+    </div>
+  </div>
+);
 }
 
 export default App;
