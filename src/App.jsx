@@ -132,7 +132,21 @@ function App() {
     const interval = setInterval(fetchPlaybackState, 5000);
 
     return () => clearInterval(interval);
+    return () => clearInterval(interval);
   }, [accessToken, playingTrack, isDemo]);
+
+  // Initialize Ads
+  useEffect(() => {
+    try {
+      if (window.adsbygoogle) {
+        // Push ads for left and right slots
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      }
+    } catch (e) {
+      console.error("AdSense error:", e);
+    }
+  }, [accessToken, isDemo]); // Re-run when view changes (e.g. login)
 
   // Manual Refresh Handler
   const handleManualRefresh = () => {
@@ -200,38 +214,63 @@ function App() {
         )}
       </div>
 
-      <div className="z-10 w-full max-w-7xl">
-        {!accessToken && !isDemo ? (
-          <div className="flex flex-col items-center justify-center h-[80vh] space-y-8">
-            <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 tracking-tighter">
-              MusixMatch
-            </h1>
-            <p className="text-xl text-gray-400 max-w-md text-center">
-              Sync your Spotify playback with real-time lyrics in a beautiful interface.
-            </p>
-            <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
-              <a
-                className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-4 px-10 rounded-full text-xl transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_20px_rgba(29,185,84,0.5)] text-center"
-                href="/login"
-              >
-                Login with Spotify
-              </a>
-              <button
-                onClick={handleDemoStart}
-                className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 font-bold py-4 px-10 rounded-full text-xl transition-all duration-300 transform hover:scale-105 text-center"
-              >
-                Try Demo
-              </button>
+      <div className="z-10 w-full max-w-7xl grid grid-cols-1 md:grid-cols-[200px_1fr_200px] gap-4 h-screen">
+
+        {/* Left Ad Banner (Hidden on mobile) */}
+        <div className="hidden md:flex items-center justify-center p-2 rounded-lg bg-black/20 backdrop-blur-sm self-center h-[80vh]">
+          <ins className="adsbygoogle"
+            style={{ display: 'block', width: '160px', height: '600px' }}
+            data-ad-client="ca-pub-8442284275973305"
+            data-ad-slot="responsive-left" // You might need to generate real slot IDs in AdSense
+            data-ad-format="auto"
+            data-full-width-responsive="true"></ins>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex flex-col justify-center h-full">
+          {!accessToken && !isDemo ? (
+            <div className="flex flex-col items-center justify-center h-[80vh] space-y-8">
+              <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 tracking-tighter">
+                MusixMatch
+              </h1>
+              <p className="text-xl text-gray-400 max-w-md text-center">
+                Sync your Spotify playback with real-time lyrics in a beautiful interface.
+              </p>
+              <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
+                <a
+                  className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-4 px-10 rounded-full text-xl transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_20px_rgba(29,185,84,0.5)] text-center"
+                  href="/login"
+                >
+                  Login with Spotify
+                </a>
+                <button
+                  onClick={handleDemoStart}
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 font-bold py-4 px-10 rounded-full text-xl transition-all duration-300 transform hover:scale-105 text-center"
+                >
+                  Try Demo
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <PlayerLayout
-            playingTrack={playingTrack}
-            lyrics={lyrics}
-            source={lyricsSource}
-            onRefresh={handleManualRefresh}
-          />
-        )}
+          ) : (
+            <PlayerLayout
+              playingTrack={playingTrack}
+              lyrics={lyrics}
+              source={lyricsSource}
+              onRefresh={handleManualRefresh}
+            />
+          )}
+        </div>
+
+        {/* Right Ad Banner (Hidden on mobile) */}
+        <div className="hidden md:flex items-center justify-center p-2 rounded-lg bg-black/20 backdrop-blur-sm self-center h-[80vh]">
+          <ins className="adsbygoogle"
+            style={{ display: 'block', width: '160px', height: '600px' }}
+            data-ad-client="ca-pub-8442284275973305"
+            data-ad-slot="responsive-right" // You might need to generate real slot IDs in AdSense
+            data-ad-format="auto"
+            data-full-width-responsive="true"></ins>
+        </div>
+
       </div>
     </div>
   );
