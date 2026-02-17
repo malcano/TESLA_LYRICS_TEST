@@ -34,7 +34,7 @@ export async function onRequest(context) {
     const searchPromises = [];
 
     // Helper to wrap trySearchAndMatch so it rejects on null (required for Promise.any)
-    const search = (q, d, src) => trySearchAndMatch(q, d, src).then(res => res ? res : Promise.reject('No match'));
+    const search = (q, d, src, a) => trySearchAndMatch(q, d, src, a).then(res => res ? res : Promise.reject('No match'));
 
     // Strategy 1: Strict Match (Artist + Track)
     // Wrapped in a promise to be compatible with Promise.any
@@ -53,17 +53,24 @@ export async function onRequest(context) {
 
     if (duration) {
         // Strategy 2: Search by Artist -> Duration Match
-        searchPromises.push(search(artist, duration, "Lrclib (Artist Search)"));
+        // We validating against 'track' name for Artist search? No, we search Artist, check duration. 
+        // Logic: Search query = Artist. Found item artist = query. 
+        // Ideally we also check if item TRACK matches.
+        // But for "Artist Search", the query IS the artist. 
+        // Let's enforce Artist matches Artist.
+        searchPromises.push(search(artist, duration, "Lrclib (Artist Search)", artist));
 
         // Strategy 3: Search by Track Name -> Duration Match
-        searchPromises.push(search(track, duration, "Lrclib (Track Search)"));
+        // Validate found artist matches requested artist
+        searchPromises.push(search(track, duration, "Lrclib (Track Search)", artist));
 
         // Strategy 4: Split Title Search -> Duration Match
         const parts = track.split(/ - | \(|\[/).filter(p => p.trim().length > 1);
         if (parts.length > 1) {
             for (const part of parts) {
                 const cleanPart = part.replace(/[)\]]/g, '').trim();
-                searchPromises.push(search(cleanPart, duration, `Lrclib (Split: "${cleanPart}")`));
+                // Validate found artist matches requested artist
+                searchPromises.push(search(cleanPart, duration, `Lrclib (Split: "${cleanPart}")`, artist));
             }
         }
     }
@@ -110,7 +117,7 @@ function parseLrclibData(data) {
 }
 
 // Helper: Search Lrclib and find duration match
-async function trySearchAndMatch(query, targetDuration, sourceName) {
+async function trySearchAndMatch(query, targetDuration, sourceName, targetArtist = null) {
     try {
         const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
         const searchRes = await fetch(searchUrl);
@@ -119,7 +126,27 @@ async function trySearchAndMatch(query, targetDuration, sourceName) {
             if (Array.isArray(results)) {
                 // Find a track with matching duration (+/- 3 seconds tolerance)
                 // Increased tolerance slightly for reliability
-                const match = results.find(item => Math.abs(item.duration - targetDuration) < 3);
+                const match = results.find(item => {
+                    // 1. Duration Check
+                    const durationMatch = Math.abs(item.duration - targetDuration) < 3;
+                    if (!durationMatch) return false;
+
+                    // 2. Artist Check (if targetArtist is provided)
+                    if (targetArtist) {
+                        const normalize = (str) => str ? str.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') : '';
+                        const nItemArtist = normalize(item.artistName);
+                        const nTargetArtist = normalize(targetArtist);
+
+                        // Strict check: One must contain the other
+                        // This prevents "Ling Ling" (The Black Skirts) matching "Unravel" (TK from Ling Tosite Sigure)
+                        // because "Ling" (split search) finds "TK..." which does NOT contain "The Black Skirts"
+                        if (!nItemArtist.includes(nTargetArtist) && !nTargetArtist.includes(nItemArtist)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+
                 if (match) {
                     const lines = parseLrclibData(match);
                     if (lines) return jsonResponse({ lines, source: sourceName });
