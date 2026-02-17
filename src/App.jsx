@@ -100,7 +100,11 @@ function App() {
             });
             // Fetch Lyrics from our backend (Cloudflare Function)
             axios.get('/lyrics', {
-              params: { track: trackName, artist: artist }
+              params: {
+                track: trackName,
+                artist: artist,
+                duration: track.duration_ms / 1000
+              }
             }).then(res => {
               setLyrics(res.data.lines);
               setLyricsFound(true);
@@ -140,7 +144,11 @@ function App() {
         setPlayingTrack({ id: track.id, artist, name: trackName, albumArt });
 
         axios.get('/lyrics', {
-          params: { track: trackName, artist: artist }
+          params: {
+            track: trackName,
+            artist: artist,
+            duration: track.duration_ms / 1000
+          }
         }).then(res => {
           setLyrics(res.data.lines);
           setLyricsFound(true);

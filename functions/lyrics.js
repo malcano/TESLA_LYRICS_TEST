@@ -2,6 +2,8 @@ export async function onRequest(context) {
     const url = new URL(context.request.url);
     const artist = url.searchParams.get('artist');
     const track = url.searchParams.get('track');
+    const durationParam = url.searchParams.get('duration');
+    const duration = durationParam ? parseFloat(durationParam) : null;
 
     if (!artist || !track) {
         return new Response(JSON.stringify({ error: 'Missing parameters' }), { status: 400 });
@@ -27,39 +29,51 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ lines: lyrics }), { headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 1. Primary Source: Lrclib.net API (Official, Free, Open)
+    // 1. Primary Source: Lrclib.net API (Strict Match)
     try {
         const lrclibUrl = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(track)}`;
         const lrcResponse = await fetch(lrclibUrl);
 
         if (lrcResponse.ok) {
             const data = await lrcResponse.json();
-            // Lrclib returns 'syncedLyrics' or 'plainLyrics'
-            const lyricsText = data.plainLyrics || data.syncedLyrics;
-            if (lyricsText) {
-                // If synced, it has timestamps like [00:12.34]. We might want to strip them if the frontend expects plain lines.
-                // Current frontend expects plain lines array.
-                // Simple strip: remove [...] at start of line
-                const lines = lyricsText.split('\n')
-                    .map(line => line.replace(/^\[.*?\]/, '').trim())
-                    .filter(line => line.length > 0);
-
-                if (lines.length > 0) {
-                    return new Response(JSON.stringify({ lines }), { headers: { 'Content-Type': 'application/json' } });
-                }
-            }
+            const lines = parseLrclibData(data);
+            if (lines) return jsonResponse({ lines });
         }
     } catch (e) {
-        console.error("Lrclib error:", e);
+        // Continue to next method
     }
 
-    // 2. Secondary Source: Scraping via Search (DuckDuckGo -> Genius)
+    // 2. Secondary Source: Lrclib.net API (Duration Match fallback)
+    // Useful for translated titles (e.g. Redoor - 영원은 그렇듯 -> Forever Has Always Been)
+    if (duration) {
+        try {
+            // Search by Artist only
+            const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(artist)}`;
+            const searchRes = await fetch(searchUrl);
+            if (searchRes.ok) {
+                const results = await searchRes.json();
+                if (Array.isArray(results)) {
+                    // Find a track with matching duration (+/- 2 seconds)
+                    const match = results.find(item => Math.abs(item.duration - duration) < 2);
+                    if (match) {
+                        const lines = parseLrclibData(match);
+                        if (lines) return jsonResponse({ lines });
+                    }
+                }
+            }
+        } catch (e) {
+            // Continue
+        }
+    }
+
+    // 3. Tertiary Source: Scraping via Search (DuckDuckGo -> Genius)
+    // Keeping this as a last resort for tracks not on Lrclib
     try {
         const geniusUrl = await searchGenius(artist, track);
         if (geniusUrl) {
             const lines = await fetchGeniusLyrics(geniusUrl);
             if (lines && lines.length > 0) {
-                return new Response(JSON.stringify({ lines }), { headers: { 'Content-Type': 'application/json' } });
+                return jsonResponse({ lines });
             }
         }
     } catch (e) {
@@ -67,9 +81,24 @@ export async function onRequest(context) {
     }
 
     // Final Fallback
-    return new Response(JSON.stringify({
+    return jsonResponse({
         lines: ["Lyrics not found.", "Please check song title."]
-    }), { headers: { 'Content-Type': 'application/json' } });
+    });
+}
+
+function jsonResponse(data) {
+    return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+}
+
+function parseLrclibData(data) {
+    const lyricsText = data.plainLyrics || data.syncedLyrics;
+    if (!lyricsText) return null;
+
+    const lines = lyricsText.split('\n')
+        .map(line => line.replace(/^\[.*?\]/, '').trim())
+        .filter(line => line.length > 0);
+
+    return lines.length > 0 ? lines : null;
 }
 
 async function searchGenius(artist, track) {
@@ -91,7 +120,6 @@ async function searchGenius(artist, track) {
         }
         return null;
     } catch (e) {
-        console.error("Search error:", e);
         return null;
     }
 }
